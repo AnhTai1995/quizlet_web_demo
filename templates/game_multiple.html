@@ -33,7 +33,7 @@
     <div class="alert alert-primary fs-4">{{ question }}</div>
   </div>
 
-  {% if not show_answer %}
+  {% if not result %}
   <form method="POST" action="{{ url_for('game_multiple', project=project, lang=lang) }}">
     {% for choice in choices %}
       <button class="option-btn w-100 btn btn-light" type="submit" name="answer" value="{{ choice }}">
@@ -44,16 +44,16 @@
   {% else %}
     <div class="mb-3">
       <h5>Kết quả:</h5>
-      {% if last_result %}
+      {% if result.is_correct %}
         <div class="alert alert-success">✅ Chính xác!</div>
       {% else %}
-        <div class="alert alert-danger">❌ Sai. Đáp án đúng là: <strong>{{ answer }}</strong></div>
+        <div class="alert alert-danger">❌ Sai. Đáp án đúng là: <strong>{{ result.correct_answer }}</strong></div>
       {% endif %}
     </div>
     {% for choice in choices %}
       <div class="option-btn w-100 btn
-           {% if choice == answer %} correct
-           {% elif choice == last_answer and not last_result %} wrong
+           {% if choice == result.correct_answer %} correct
+           {% elif choice == result.user_answer and not result.is_correct %} wrong
            {% endif %}">
         {{ choice }}
       </div>

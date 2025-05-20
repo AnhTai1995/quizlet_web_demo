@@ -8,24 +8,44 @@
 <body>
 <div class="container mt-5">
   <h1 class="mb-4">📚 Quizlet Web App</h1>
-  <form action="/create_project" method="POST" class="input-group mb-4">
+
+  <form action="/create_project" method="POST" class="input-group mb-3">
     <input type="text" name="project_name" class="form-control" placeholder="Tên project mới" required>
     <button class="btn btn-primary" type="submit">➕ Tạo Project</button>
-    <a style="margin-left: 15px;" href="{{ url_for('reset_fill') }}" class="btn btn-outline-danger">🧹 Reset Game Fill Cache</a>
+    <a href="{{ url_for('reset_fill') }}" class="btn btn-outline-danger ms-2">🧹 Reset Game Fill Cache</a>
   </form>
 
+  <form action="{{ url_for('import_zip') }}" method="POST" enctype="multipart/form-data" class="d-flex align-items-center gap-2 mb-3">
+    <input type="file" name="zip_file" class="form-control" required>
+    <button type="submit" class="btn btn-outline-primary">📦 Import ZIP</button>
+    <a href="{{ url_for('export_all') }}" class="btn btn-outline-success ms-2">⬇ Tải toàn bộ</a>
+  </form>
 
-  <h3>📁 Danh sách project</h3>
+  <h4 class="mb-3">📁 Danh sách project</h4>
+  <table class="table table-bordered align-middle">
+    <thead class="table-light">
+      <tr>
+        <th width="40%">Tên Project</th>
+        <th width="60%">Hành động</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for p in projects %}
+        <tr>
+          <td><a href="{{ url_for('project_view', project=p) }}" class="fw-bold text-decoration-none">{{ p }}</a></td>
+          <td>
+            <div class="d-flex gap-2">
+              <a href="{{ url_for('export_csv', project=p) }}" class="btn btn-sm btn-outline-success">⬇ Export</a>
+              <form action="{{ url_for('delete_project', project=p) }}" method="post" onsubmit="return confirm('Bạn có chắc muốn xóa project này?')">
+                <button class="btn btn-sm btn-outline-danger">🗑</button>
+              </form>
+            </div>
+          </td>
+        </tr>
+      {% endfor %}
+    </tbody>
+  </table>
 
-  <ul class="list-group"> </ul>
-    {% for project in projects %}
-      <li class="list-group-item d-flex justify-content-between align-items-center">
-        <a href="{{ url_for('project_view', project=project) }}">{{ project }}</a>
-      </li>
-    {% else %}
-      <li class="list-group-item">Chưa có project nào.</li>
-    {% endfor %}
-  </ul>
 </div>
 </body>
 </html>

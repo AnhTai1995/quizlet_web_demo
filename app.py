@@ -1,8 +1,9 @@
-# app.py (full file with home, project management and games)
-from flask import Flask, render_template, request, redirect, url_for, session
+from flask import Flask, render_template, request, redirect, url_for, session, send_file, flash
 import os
 import csv
 import random
+import zipfile
+from io import BytesIO
 
 app = Flask(__name__)
 app.secret_key = 'quizlet-secret'
@@ -22,6 +23,8 @@ def load_flashcards(project):
         return list(csv.DictReader(f))
 
 def save_flashcard(project, english, vietnamese):
+    if not english and not vietnamese:
+        return
     path = get_file_path(project)
     is_new = not os.path.exists(path)
     with open(path, "a", newline='', encoding="utf-8") as f:
@@ -41,6 +44,25 @@ def save_all_flashcards(project, flashcards):
 def index():
     projects = [f[:-4] for f in os.listdir(DATA_DIR) if f.endswith(".csv")]
     return render_template("index.html", projects=projects)
+
+@app.route("/reset_fill")
+def reset_fill():
+    session.pop("fill", None)
+    return redirect(url_for("index"))
+
+@app.route("/export/<project>")
+def export_csv(project):
+    path = get_file_path(project)
+    if os.path.exists(path):
+        return send_file(path, as_attachment=True)
+    return "File not found", 404
+
+@app.route("/delete_project/<project>", methods=["POST"])
+def delete_project(project):
+    path = get_file_path(project)
+    if os.path.exists(path):
+        os.remove(path)
+    return redirect(url_for("index"))
 
 @app.route("/create_project", methods=["POST"])
 def create_project():
@@ -73,7 +95,13 @@ def edit_flashcard(project, index):
         save_all_flashcards(project, flashcards)
     return redirect(url_for("project_view", project=project))
 
-# ========== Game Routes ========== #
+@app.route("/delete_flashcard/<project>/<int:index>", methods=["POST"])
+def delete_flashcard(project, index):
+    flashcards = load_flashcards(project)
+    if 0 <= index < len(flashcards):
+        flashcards.pop(index)
+        save_all_flashcards(project, flashcards)
+    return redirect(url_for("project_view", project=project))
 
 @app.route("/game/<project>")
 def game_choice(project):
@@ -87,58 +115,50 @@ def game_multiple(project, lang):
         return "Cần ít nhất 4 flashcards để chơi."
 
     if "quiz" not in session:
-        session["quiz"] = {
-            "cards": random.sample(cards, len(cards)),
-            "index": 0,
-            "score": 0,
-            "last_result": None,
-            "last_answer": None
-        }
+        session["quiz"] = {"cards": random.sample(cards, len(cards)), "index": 0, "score": 0, "show": False, "result": None}
 
     quiz = session["quiz"]
     index = quiz["index"]
-    if index >= len(quiz["cards"]):
-        result = {"score": quiz["score"], "total": len(quiz["cards"])}
+    total = len(quiz["cards"])
+
+    if request.method == "POST":
+        user_answer = request.form.get("answer")
+        correct = session.get("current_answer")
+        is_correct = (user_answer == correct)
+        if is_correct:
+            quiz["score"] += 1
+        quiz["result"] = {"is_correct": is_correct, "correct_answer": correct, "user_answer": user_answer}
+        quiz["show"] = True
+        session["quiz"] = quiz
+        return redirect(url_for("game_multiple", project=project, lang=lang))
+
+    if index >= total:
+        result = {"score": quiz["score"], "total": total}
         session.pop("quiz")
+        session.pop("current_answer", None)
         return render_template("game_multiple_result.html", project=project, result=result)
 
     current = quiz["cards"][index]
     question = current["Vietnamese"] if lang == "vi" else current["English"]
     answer = current["English"] if lang == "vi" else current["Vietnamese"]
     pool = list({c["English"] if lang == "vi" else c["Vietnamese"] for c in cards if (c["English"] if lang == "vi" else c["Vietnamese"]) != answer})
-    choices = random.sample(pool, min(3, len(pool))) + [answer]
+    choices = random.sample(pool, 3) + [answer] if len(pool) >= 3 else pool + [answer]
     random.shuffle(choices)
 
-    if request.method == "POST":
-        user_answer = request.form.get("answer")
-        is_correct = (user_answer == answer)
-        if is_correct:
-            quiz["score"] += 1
-        quiz["last_result"] = is_correct
-        quiz["last_answer"] = user_answer
-        quiz["show_answer"] = True
-        session["quiz"] = quiz
-        return redirect(url_for("game_multiple", project=project, lang=lang))
+    show_result = quiz.get("show", False)
+    result_data = quiz.get("result") if show_result else None
 
-    show_answer = quiz.pop("show_answer", False)
-    last_result = quiz.get("last_result")
-    last_answer = quiz.get("last_answer")
-    if show_answer:
+    session["current_answer"] = answer  # ✅ Đặt trước khi index++
+
+    if show_result:
         quiz["index"] += 1
-    session["quiz"] = quiz
+        quiz["show"] = False
+        session["quiz"] = quiz
 
-    return render_template("game_multiple.html",
-                           project=project,
-                           lang=lang,
-                           question=question,
-                           answer=answer,
-                           choices=choices,
-                           show_answer=show_answer,
-                           last_result=last_result,
-                           last_answer=last_answer,
-                           index=index + 1,
-                           total=len(quiz["cards"]))
-# Game Fill
+    return render_template("game_multiple.html", project=project, lang=lang,
+                           question=question, answer=answer, choices=choices,
+                           index=index+1, total=total, result=result_data)
+
 @app.route("/game/<project>/fill/<lang>", methods=["GET", "POST"])
 def game_fill(project, lang):
     cards = load_flashcards(project)
@@ -153,7 +173,6 @@ def game_fill(project, lang):
     idx = quiz["index"]
     total = len(quiz["cards"])
 
-    # Khi hết flashcards
     if idx >= total:
         result_summary = {"correct": quiz["correct"], "total": total}
         session.pop("fill")
@@ -187,22 +206,46 @@ def game_fill(project, lang):
 def game_flip(project):
     cards = load_flashcards(project)
     cards = [c for c in cards if c["English"] and c["Vietnamese"]]
-
-    if "flip_index" not in session:
+    if "flip_cards" not in session:
         session["flip_cards"] = random.sample(cards, len(cards))
         session["flip_index"] = 0
-
     flip_cards = session["flip_cards"]
-    index = session["flip_index"]
-    current = flip_cards[index] if index < len(flip_cards) else None
-
-    session["flip_index"] = index + 1 if index + 1 < len(flip_cards) else 0
-
+    idx = session["flip_index"]
+    current = flip_cards[idx] if idx < len(flip_cards) else None
+    session["flip_index"] = idx+1 if idx+1 < len(flip_cards) else 0
     return render_template("game_flip.html", project=project, cards=[current] if current else [])
 
-@app.route("/reset_fill")
-def reset_fill():
-    session.pop("fill_state", None)
+@app.route("/export_all")
+def export_all():
+    memory_file = BytesIO()
+    with zipfile.ZipFile(memory_file, 'w') as zf:
+        for filename in os.listdir(DATA_DIR):
+            if filename.endswith(".csv"):
+                path = os.path.join(DATA_DIR, filename)
+                zf.write(path, arcname=filename)
+    memory_file.seek(0)
+    return send_file(memory_file, download_name="flashcards_backup.zip", as_attachment=True)
+
+@app.route("/import", methods=["POST"])
+def import_zip():
+    uploaded_file = request.files.get("zip_file")
+    if not uploaded_file or not uploaded_file.filename.endswith(".zip"):
+        flash("Vui lòng tải lên tệp .zip hợp lệ")
+        return redirect(url_for("index"))
+
+    try:
+        with zipfile.ZipFile(uploaded_file) as zf:
+            for filename in zf.namelist():
+                print(f"📦 Importing file: {filename}")
+                if not filename.endswith(".csv"):
+                    continue
+                content = zf.read(filename).decode("utf-8")
+                with open(os.path.join(DATA_DIR, filename), "w", encoding="utf-8") as f:
+                    f.write(content)
+        flash("✅ Đã import thành công")
+    except Exception as e:
+        flash(f"❌ Lỗi khi import: {str(e)}")
+    
     return redirect(url_for("index"))
 
 if __name__ == "__main__":
