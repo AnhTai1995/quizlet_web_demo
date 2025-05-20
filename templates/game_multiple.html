@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8">
+  <title>Trắc nghiệm - {{ project }}</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+  <style>
+    .option-btn {
+      padding: 15px;
+      margin-bottom: 10px;
+      text-align: left;
+      border: 2px solid #dee2e6;
+      border-radius: 8px;
+      transition: background-color 0.2s, border-color 0.2s;
+    }
+    .correct {
+      background-color: #d1e7dd !important;
+      border-color: #0f5132 !important;
+    }
+    .wrong {
+      background-color: #f8d7da !important;
+      border-color: #842029 !important;
+    }
+  </style>
+</head>
+<body>
+<div class="container mt-5">
+  <h2 class="mb-4">🧠 Câu {{ index }} / {{ total }}</h2>
+  <a href="{{ url_for('game_choice', project=project) }}" class="btn btn-secondary mb-4">← Quay lại chọn chế độ</a>
+
+  <div class="mb-3">
+    <h4>Câu hỏi:</h4>
+    <div class="alert alert-primary fs-4">{{ question }}</div>
+  </div>
+
+  {% if not show_answer %}
+  <form method="POST" action="{{ url_for('game_multiple', project=project, lang=lang) }}">
+    {% for choice in choices %}
+      <button class="option-btn w-100 btn btn-light" type="submit" name="answer" value="{{ choice }}">
+        {{ choice }}
+      </button>
+    {% endfor %}
+  </form>
+  {% else %}
+    <div class="mb-3">
+      <h5>Kết quả:</h5>
+      {% if last_result %}
+        <div class="alert alert-success">✅ Chính xác!</div>
+      {% else %}
+        <div class="alert alert-danger">❌ Sai. Đáp án đúng là: <strong>{{ answer }}</strong></div>
+      {% endif %}
+    </div>
+    {% for choice in choices %}
+      <div class="option-btn w-100 btn
+           {% if choice == answer %} correct
+           {% elif choice == last_answer and not last_result %} wrong
+           {% endif %}">
+        {{ choice }}
+      </div>
+    {% endfor %}
+    <a href="{{ url_for('game_multiple', project=project, lang=lang) }}" class="btn btn-primary mt-3">⏭ Câu tiếp theo</a>
+  {% endif %}
+</div>
+</body>
+</html>

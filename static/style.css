@@ -1,0 +1,43 @@
+/* style.css */
+body {
+  background-color: #f8f9fa;
+}
+
+h1, h2, h3, h4 {
+  color: #212529;
+}
+
+.card {
+  border: 1px solid #dee2e6;
+  border-radius: 12px;
+  transition: box-shadow 0.2s ease;
+}
+
+.card:hover {
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.08);
+}
+
+.btn-sm {
+  padding: 4px 10px;
+  font-size: 0.875rem;
+}
+
+.flashcard-container {
+  margin-bottom: 20px;
+}
+
+.option-btn {
+  transition: all 0.2s ease-in-out;
+}
+
+.option-btn:hover {
+  transform: scale(1.02);
+}
+
+form.row.g-3 input[type="text"] {
+  min-width: 150px;
+}
+
+.modal-content {
+  border-radius: 12px;
+}
