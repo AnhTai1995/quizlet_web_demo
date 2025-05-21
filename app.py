@@ -22,21 +22,19 @@ def load_flashcards(project):
     with open(path, encoding="utf-8") as f:
         return list(csv.DictReader(f))
 
-def save_flashcard(project, english, vietnamese):
-    if not english and not vietnamese:
-        return
+def save_flashcard(project, english, vietnamese, explanation):
     path = get_file_path(project)
     is_new = not os.path.exists(path)
     with open(path, "a", newline='', encoding="utf-8") as f:
         writer = csv.writer(f)
         if is_new:
-            writer.writerow(["English", "Vietnamese"])
-        writer.writerow([english, vietnamese])
+            writer.writerow(["English", "Vietnamese", "Explanation"])
+        writer.writerow([english, vietnamese, explanation])
 
 def save_all_flashcards(project, flashcards):
     path = get_file_path(project)
     with open(path, "w", newline='', encoding="utf-8") as f:
-        writer = csv.DictWriter(f, fieldnames=["English", "Vietnamese"])
+        writer = csv.DictWriter(f, fieldnames=["English", "Vietnamese", "Explanation"])
         writer.writeheader()
         writer.writerows(flashcards)
 
@@ -71,7 +69,7 @@ def create_project():
     if not os.path.exists(path):
         with open(path, "w", newline='', encoding="utf-8") as f:
             writer = csv.writer(f)
-            writer.writerow(["English", "Vietnamese"])
+            writer.writerow(["English", "Vietnamese", "Explanation"])
     return redirect(url_for("index"))
 
 @app.route("/project/<project>")
@@ -83,7 +81,8 @@ def project_view(project):
 def add_flashcard(project):
     english = request.form["english"].strip()
     vietnamese = request.form["vietnamese"].strip()
-    save_flashcard(project, english, vietnamese)
+    explanation = request.form.get("explanation", "").strip()
+    save_flashcard(project, english, vietnamese, explanation)
     return redirect(url_for("project_view", project=project))
 
 @app.route("/edit_flashcard/<project>/<int:index>", methods=["POST"])
@@ -92,6 +91,7 @@ def edit_flashcard(project, index):
     if 0 <= index < len(flashcards):
         flashcards[index]["English"] = request.form["english"].strip()
         flashcards[index]["Vietnamese"] = request.form["vietnamese"].strip()
+        flashcards[index]["Explanation"] = request.form.get("explanation", "").strip()
         save_all_flashcards(project, flashcards)
     return redirect(url_for("project_view", project=project))
 
