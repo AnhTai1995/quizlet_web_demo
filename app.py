@@ -77,6 +77,18 @@ def project_view(project):
     flashcards = load_flashcards(project)
     return render_template("project.html", project=project, flashcards=flashcards)
 
+@app.route("/rename_project/<project>", methods=["POST"])
+def rename_project(project):
+    new_name = request.form.get("new_project_name", "").strip().replace(" ", "_")
+    old_path = get_file_path(project)
+    new_path = get_file_path(new_name)
+    if os.path.exists(old_path) and new_name and not os.path.exists(new_path):
+        os.rename(old_path, new_path)
+        flash(f"Đã đổi tên project '{project}' thành '{new_name}'")
+    else:
+        flash("Không thể đổi tên project. Có thể tên đã tồn tại hoặc không hợp lệ.")
+    return redirect(url_for("index"))
+
 @app.route("/add_flashcard/<project>", methods=["POST"])
 def add_flashcard(project):
     english = request.form["english"].strip()
