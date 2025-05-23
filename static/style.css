@@ -41,3 +41,15 @@ form.row.g-3 input[type="text"] {
 .modal-content {
   border-radius: 12px;
 }
+
+.flashcard-side {
+  min-height: 250px;
+  word-break: break-word;
+  white-space: normal;
+  padding: 1.5rem;
+}
+
+.flashcard-back small {
+  font-size: smaller;
+  color: #6c757d;
+}

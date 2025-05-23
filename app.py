@@ -154,8 +154,6 @@ def game_multiple(project, lang):
     question = current["Vietnamese"] if lang == "vi" else current["English"]
     answer = current["English"] if lang == "vi" else current["Vietnamese"]
     pool = list({c["English"] if lang == "vi" else c["Vietnamese"] for c in cards if (c["English"] if lang == "vi" else c["Vietnamese"]) != answer})
-    choices = random.sample(pool, 3) + [answer] if len(pool) >= 3 else pool + [answer]
-    random.shuffle(choices)
 
     show_result = quiz.get("show", False)
     result_data = quiz.get("result") if show_result else None
@@ -163,9 +161,16 @@ def game_multiple(project, lang):
     session["current_answer"] = answer  # ✅ Đặt trước khi index++
 
     if show_result:
+        choices = quiz.get("choices", [])
         quiz["index"] += 1
         quiz["show"] = False
         session["quiz"] = quiz
+    else:
+        choices = random.sample(pool, 3) + [answer] if len(pool) >= 3 else pool + [answer]
+        random.shuffle(choices)
+        quiz["choices"] = choices
+        session["quiz"] = quiz
+        session["current_answer"] = answer
 
     return render_template("game_multiple.html", project=project, lang=lang,
                            question=question, answer=answer, choices=choices,

@@ -56,16 +56,31 @@
   <a href="{{ url_for('game_choice', project=project) }}" class="btn btn-secondary mb-3">← Quay lại chọn chế độ</a>
 
   {% if cards and cards[0] %}
-    <div class="flashcard-container" onclick="flipCard()">
-      <div class="flashcard">
-        <div class="flashcard-side flashcard-front">
-          {{ cards[0]['English'] }}
-        </div>
-        <div class="flashcard-side flashcard-back">
-          {{ cards[0]['Vietnamese'] }}
+  <div class="flashcard-container" onclick="flipCard()">
+    <div class="flashcard">
+      <div class="flashcard-side flashcard-front d-flex align-items-center justify-content-center">
+        {{ cards[0]['English'] }}
+      </div>
+      <div class="flashcard-side flashcard-back d-flex flex-column justify-content-center text-center">
+        <div>
+          <span class="fs-5">{{ cards[0]['Vietnamese'] }}</span>
+          {% if cards[0]['Explanation'] %}
+           <div class="mt-2">
+              {% if cards[0]['Explanation']|length > 100 %}
+                <small style="font-size: 7px;" class="text-muted fst-italic">
+                  {{ cards[0]['Explanation'] }}
+              </small>
+              {% else %}
+                <small style="font-size: 12px;" class="text-muted fst-italic">
+                 {{ cards[0]['Explanation'] }}
+                </small>
+              {% endif %}
+          </div>
+          {% endif %}
         </div>
       </div>
     </div>
+  </div>
 
     <form method="GET" action="{{ url_for('game_flip', project=project) }}">
       <button type="submit" class="btn btn-primary next-btn">⏭ Câu tiếp theo</button>
