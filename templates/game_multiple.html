@@ -34,7 +34,7 @@
   </div>
 
   {% if not result %}
-  <form method="POST" action="{{ url_for('game_multiple', project=project, lang=lang) }}">
+  <form method="POST">
     {% for choice in choices %}
       <button class="option-btn w-100 btn btn-light" type="submit" name="answer" value="{{ choice }}">
         {{ choice }}
@@ -52,13 +52,16 @@
     </div>
     {% for choice in choices %}
       <div class="option-btn w-100 btn
-           {% if choice == result.correct_answer %} correct
-           {% elif choice == result.user_answer and not result.is_correct %} wrong
-           {% endif %}">
+        {% if choice == result.correct_answer %} correct
+        {% elif choice == result.user_answer and not result.is_correct %} wrong
+        {% endif %}">
         {{ choice }}
       </div>
     {% endfor %}
-    <a href="{{ url_for('game_multiple', project=project, lang=lang) }}" class="btn btn-primary mt-3">⏭ Câu tiếp theo</a>
+    <form method="POST" class="mt-3">
+      <input type="hidden" name="action" value="next">
+      <button type="submit" class="btn btn-primary">⏭ Câu tiếp theo</button>
+    </form>
   {% endif %}
 </div>
 </body>

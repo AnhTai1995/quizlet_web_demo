@@ -4,9 +4,13 @@ import csv
 import random
 import zipfile
 from io import BytesIO
+from flask_session import Session
 
 app = Flask(__name__)
 app.secret_key = 'quizlet-secret'
+app.config['SESSION_TYPE'] = 'filesystem'       # ✅ Requireds for session to work
+app.config['TEMPLATES_AUTO_RELOAD'] = True      # Help reload template when edit HTML
+Session(app)                                     # ✅ Requireds for session to work
 DATA_DIR = "data_text"
 
 if not os.path.exists(DATA_DIR):
@@ -117,6 +121,8 @@ def delete_flashcard(project, index):
 
 @app.route("/game/<project>")
 def game_choice(project):
+    session.pop("quiz", None) # reset game multiple
+    session.pop("fill", None) # reset game fill
     return render_template("game_choice.html", project=project)
 
 @app.route("/game/<project>/multiple/<lang>", methods=["GET", "POST"])
@@ -127,54 +133,72 @@ def game_multiple(project, lang):
         return "Cần ít nhất 4 flashcards để chơi."
 
     if "quiz" not in session:
-        session["quiz"] = {"cards": random.sample(cards, len(cards)), "index": 0, "score": 0, "show": False, "result": None}
+        session["quiz"] = {
+            "cards": random.sample(cards, len(cards)),
+            "index": 0,
+            "score": 0,
+            "show_result": False,
+            "result": None,
+            "choices": []
+        }
 
     quiz = session["quiz"]
     index = quiz["index"]
     total = len(quiz["cards"])
 
-    if request.method == "POST":
-        user_answer = request.form.get("answer")
-        correct = session.get("current_answer")
-        is_correct = (user_answer == correct)
-        if is_correct:
-            quiz["score"] += 1
-        quiz["result"] = {"is_correct": is_correct, "correct_answer": correct, "user_answer": user_answer}
-        quiz["show"] = True
-        session["quiz"] = quiz
-        return redirect(url_for("game_multiple", project=project, lang=lang))
-
     if index >= total:
         result = {"score": quiz["score"], "total": total}
-        session.pop("quiz")
+        session.pop("quiz", None)
         session.pop("current_answer", None)
         return render_template("game_multiple_result.html", project=project, result=result)
 
     current = quiz["cards"][index]
     question = current["Vietnamese"] if lang == "vi" else current["English"]
     answer = current["English"] if lang == "vi" else current["Vietnamese"]
-    pool = list({c["English"] if lang == "vi" else c["Vietnamese"] for c in cards if (c["English"] if lang == "vi" else c["Vietnamese"]) != answer})
 
-    show_result = quiz.get("show", False)
-    result_data = quiz.get("result") if show_result else None
+    if request.method == "POST":
+        if request.form.get("answer"):
+            user_answer = request.form.get("answer")
+            is_correct = (user_answer == answer)
+            if is_correct:
+                quiz["score"] += 1
+            quiz["result"] = {
+                "is_correct": is_correct,
+                "correct_answer": answer,
+                "user_answer": user_answer
+            }
+            quiz["show_result"] = True
+            quiz["choices"] = quiz.get("choices", [])
+            session["quiz"] = quiz
+            session["current_answer"] = answer
+            return redirect(url_for("game_multiple", project=project, lang=lang))
+        elif request.form.get("action") == "next":
+            quiz["index"] += 1
+            quiz["show_result"] = False
+            quiz["result"] = None
+            quiz["choices"] = []
+            session["quiz"] = quiz
+            return redirect(url_for("game_multiple", project=project, lang=lang))
 
-    session["current_answer"] = answer  # ✅ Đặt trước khi index++
-
-    if show_result:
+    if quiz["show_result"]:
         choices = quiz.get("choices", [])
-        quiz["index"] += 1
-        quiz["show"] = False
-        session["quiz"] = quiz
     else:
-        choices = random.sample(pool, 3) + [answer] if len(pool) >= 3 else pool + [answer]
+        pool = [c["English"] if lang == "vi" else c["Vietnamese"]
+                for c in cards if (c["English"] if lang == "vi" else c["Vietnamese"]) != answer]
+        choices = random.sample(pool, min(3, len(pool))) + [answer]
         random.shuffle(choices)
         quiz["choices"] = choices
         session["quiz"] = quiz
         session["current_answer"] = answer
 
-    return render_template("game_multiple.html", project=project, lang=lang,
-                           question=question, answer=answer, choices=choices,
-                           index=index+1, total=total, result=result_data)
+    return render_template("game_multiple.html",
+                           project=project,
+                           lang=lang,
+                           question=question,
+                           choices=choices,
+                           result=quiz["result"],
+                           index=index + 1,
+                           total=total)
 
 @app.route("/game/<project>/fill/<lang>", methods=["GET", "POST"])
 def game_fill(project, lang):
@@ -184,7 +208,13 @@ def game_fill(project, lang):
         return "Không có flashcard hợp lệ để luyện tập."
 
     if "fill" not in session:
-        session["fill"] = {"cards": random.sample(cards, len(cards)), "index": 0, "correct": 0, "show": False}
+        session["fill"] = {
+            "cards": random.sample(cards, len(cards)),
+            "index": 0,
+            "correct": 0,
+            "show_result": False,
+            "result": None
+        }
 
     quiz = session["fill"]
     idx = quiz["index"]
@@ -192,18 +222,18 @@ def game_fill(project, lang):
 
     if idx >= total:
         result_summary = {"correct": quiz["correct"], "total": total}
-        session.pop("fill")
+        session.pop("fill", None)
         return render_template("game_fill_result.html", project=project, result=result_summary)
 
     current = quiz["cards"][idx]
     question = current["Vietnamese"] if lang == "vi" else current["English"]
     answer = current["English"] if lang == "vi" else current["Vietnamese"]
-    result = quiz.get("result") if quiz.get("show") else None
 
     if request.method == "POST":
         if request.form.get("action") == "next":
             quiz["index"] += 1
-            quiz["show"] = False
+            quiz["show_result"] = False
+            quiz["result"] = None
             session["fill"] = quiz
             return redirect(url_for("game_fill", project=project, lang=lang))
         user_input = request.form.get("user_answer", "").strip().lower()
@@ -211,13 +241,19 @@ def game_fill(project, lang):
         if is_correct:
             quiz["correct"] += 1
         quiz["result"] = (is_correct, answer)
-        quiz["show"] = True
+        quiz["show_result"] = True
         session["fill"] = quiz
         return redirect(url_for("game_fill", project=project, lang=lang))
 
-    return render_template("game_fill.html", project=project, lang=lang,
-                           question=question, result=result,
-                           index=idx+1, total=total)
+    result = quiz.get("result") if quiz.get("show_result") else None
+
+    return render_template("game_fill.html",
+                           project=project,
+                           lang=lang,
+                           question=question,
+                           result=result,
+                           index=idx + 1,
+                           total=total)
 
 @app.route("/game/<project>/flip")
 def game_flip(project):

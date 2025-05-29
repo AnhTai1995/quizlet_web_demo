@@ -18,26 +18,19 @@
   {% if result is not none %}
     {% if result[0] %}
       <div class="alert alert-success">✅ Chính xác!</div>
-      <form method="POST">
-        <button name="action" value="next" class="btn btn-primary">⏭ Câu tiếp theo</button>
-      </form>
     {% else %}
       <div class="alert alert-danger">❌ Sai. Đáp án đúng là: <strong>{{ result[1] }}</strong></div>
-      <form method="POST" class="mt-3">
-        <div class="mb-3">
-          <label for="answer" class="form-label">Thử lại:</label>
-          <input type="text" name="user_answer" id="answer" class="form-control" required autofocus>
-        </div>
-        <button type="submit" class="btn btn-danger">Kiểm tra lại</button>
-      </form>
     {% endif %}
+    <form method="POST">
+      <button name="action" value="next" class="btn btn-primary mt-3">⏭ Câu tiếp theo</button>
+    </form>
   {% else %}
     <form method="POST">
       <div class="mb-3">
-        <label for="answer" class="form-label">Nhập đáp án:</label>
-        <input type="text" name="user_answer" id="answer" class="form-control" required autofocus>
+        <label for="user_answer" class="form-label">Nhập đáp án:</label>
+        <input type="text" class="form-control" id="user_answer" name="user_answer" autofocus>
       </div>
-      <button type="submit" class="btn btn-success">Kiểm tra</button>
+      <button type="submit" class="btn btn-success">✔ Trả lời</button>
     </form>
   {% endif %}
 </div>
