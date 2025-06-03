@@ -53,6 +53,7 @@
 <body>
 <div class="container mt-5 text-center">
   <h2 class="mb-4">🃏 Lật Flashcard - {{ project }}</h2>
+  <h5><strong>📄 Thẻ {{ index }} / {{ total }}</strong></h5>
   <a href="{{ url_for('game_choice', project=project) }}" class="btn btn-secondary mb-3">← Quay lại chọn chế độ</a>
 
   {% if cards and cards[0] %}

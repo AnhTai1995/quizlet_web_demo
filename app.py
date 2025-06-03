@@ -123,6 +123,9 @@ def delete_flashcard(project, index):
 def game_choice(project):
     session.pop("quiz", None) # reset game multiple
     session.pop("fill", None) # reset game fill
+    # reset flip session
+    session.pop(f"flip_cards_{project}", None)
+    session.pop(f"flip_index_{project}", None)
     return render_template("game_choice.html", project=project)
 
 @app.route("/game/<project>/multiple/<lang>", methods=["GET", "POST"])
@@ -259,14 +262,27 @@ def game_fill(project, lang):
 def game_flip(project):
     cards = load_flashcards(project)
     cards = [c for c in cards if c["English"] and c["Vietnamese"]]
-    if "flip_cards" not in session:
-        session["flip_cards"] = random.sample(cards, len(cards))
-        session["flip_index"] = 0
-    flip_cards = session["flip_cards"]
-    idx = session["flip_index"]
+    if not cards:
+        flash("Không có flashcard hợp lệ để lật.")
+        return redirect(url_for("project_view", project=project))
+
+    flip_key = f"flip_cards_{project}"
+    flip_idx_key = f"flip_index_{project}"
+
+    if flip_key not in session or not session.get(flip_key):
+        session[flip_key] = random.sample(cards, len(cards))
+        session[flip_idx_key] = 0
+
+    flip_cards = session[flip_key]
+    idx = session[flip_idx_key]
     current = flip_cards[idx] if idx < len(flip_cards) else None
-    session["flip_index"] = idx+1 if idx+1 < len(flip_cards) else 0
-    return render_template("game_flip.html", project=project, cards=[current] if current else [])
+    session[flip_idx_key] = idx + 1 if idx + 1 < len(flip_cards) else 0
+
+    return render_template("game_flip.html",
+                           project=project,
+                           cards=[current] if current else [],
+                           index=idx + 1,  # to display 1-based index
+                           total=len(flip_cards))
 
 @app.route("/export_all")
 def export_all():
